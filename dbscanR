@@ -10,7 +10,7 @@ library(tidyr)
 
 
 # site com as velocidades máximas das avenidas: https://www.rio.rj.gov.br/dlstatic/10112/6799394/4186011/Radar2017.pdf
-data <- read.csv("output3.csv")
+data <- read.csv("output5.csv")
 mapa_rj <- data
 
 mapa_rj <- data[sample(nrow(data), size = nrow(data) * 0.1),]
@@ -31,13 +31,18 @@ mapa_rj <- mapa_rj %>%
 
 speed <- 20 / 60
 
+data <- data %>%
+  filter(VELOCITY <= speed)
+
+data <- data %>%
+  filter(LINE != "GARAGEM")
+
 data$GPSTIMESTAMP <- as.POSIXct(data$GPSTIMESTAMP, format = "%Y-%m-%d %H:%M:%S")
 
 data$horas <- as.numeric(format(data$GPSTIMESTAMP, "%H"))
 data$minutos <- as.numeric(format(data$GPSTIMESTAMP, "%M"))
 
 data$horas_decimal <- data$horas + data$minutos / 60
-
 
 onibus_congestionados <- data %>%
   filter(horas_decimal >= 17 & horas_decimal <= 18)
@@ -49,9 +54,7 @@ onibus_congestionados <- na.omit(onibus_congestionados)
 selected_columns <- onibus_congestionados[, c("LATITUDE", "LONGITUDE", "horas_decimal", "RAINFALLVOLUME")]
 
 selected_columns <- selected_columns %>% drop_na()
-
 selected_columns <- selected_columns[, apply(selected_columns, 2, function(x) length(unique(x)) > 1)]
-
 scaled_datas <- scale(selected_columns)
 
 model <- cluster_dbscan(minPts = 150)
@@ -285,6 +288,40 @@ ggplot() +
   # Personalização dos rótulos e títulos
   labs(
     title = "Clusters pela Lagoa",
+    x = "Longitude",
+    y = "Latitude",
+    color = "Cluster"
+  ) +
+  
+  # Tema minimalista
+  theme_minimal() +
+  
+  # Ajustes adicionais de estilo
+  theme(
+    plot.title = element_text(hjust = 0.5, size = 16, face = "bold"),
+    axis.title = element_text(size = 14),
+    axis.text = element_text(size = 12),
+    legend.position = "right"  # Manter a legenda para os clusters
+  )
+
+# RAMOS
+
+RAMOS <- data[data$ADMINISTRATIVEREGION == 10,]
+
+RAMOS <- RAMOS[!is.na(RAMOS$LATITUDE) & !is.na(RAMOS$LONGITUDE), ]
+
+onibus_RAMOS <- onibus_congestionados[onibus_congestionados$ADMINISTRATIVEREGION == 6,]
+
+ggplot() +
+  # Primeira camada de RAMOS em cinza
+  geom_point(data = RAMOS, aes(x = LONGITUDE, y = LATITUDE), color = "gray", alpha = 0.5) +
+  
+  # Segunda camada com os clusters
+  geom_point(data = onibus_RAMOS, aes(x = LONGITUDE, y = LATITUDE, color = as.factor(clusters)), alpha = 0.5) +
+  
+  # Personalização dos rótulos e títulos
+  labs(
+    title = "Clusters por RAMOS",
     x = "Longitude",
     y = "Latitude",
     color = "Cluster"
